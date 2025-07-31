@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT Preparation Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* A soft gray background */
+        }
+        .chapter-card {
+            transition: all 0.3s ease;
+            transform-style: preserve-3d;
+        }
+        .chapter-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .tick-button {
+            display: flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+            border: 2px solid #9ca3af; border-radius: 50%; cursor: pointer; transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .tick-button.completed { background-color: #10b981; border-color: #10b981; }
+        .tick-button svg { display: none; width: 12px; height: 12px; color: white; }
+        .tick-button.completed svg { display: block; }
+
+        .progress-bar-bg { background-color: #e5e7eb; }
+        .summary-progress-bar-fg {
+            background: linear-gradient(to right, #6ee7b7, #10b981);
+            transition: width 0.5s ease;
+        }
+        .total-progress-bar-fg {
+             background: linear-gradient(to right, #4f46e5, #818cf8);
+             transition: width 0.5s ease;
+        }
+        .revise-button {
+            transition: all 0.2s ease;
+        }
+        .revise-button:hover {
+            transform: scale(1.05);
+        }
+        .details-section {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0 1.5rem;
+        }
+        .details-section.open {
+            max-height: 1000px; /* Large enough to not clip content */
+            padding: 1.5rem 1.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="max-w-6xl mx-auto p-4 sm:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-5xl font-extrabold text-gray-900 tracking-tight">CAT Preparation Tracker</h1>
+            <p class="text-lg text-gray-600 mt-3">सीताराम</p>
+        </header>
+
+        <div id="countdown-container" class="bg-white p-6 rounded-xl shadow-lg text-center mb-8">
+            </div>
+
+        <div id="overall-progress-container" class="mb-8"></div>
+        <div id="reminders-container" class="mb-12"></div>
+
+        <main id="dashboard-container" class="space-y-10">
+        </main>
+    </div>
+
+    <script>
+        // --- DATA STRUCTURE (WITH DOUBTS FIELD) ---
+        const studyData = [
+            {
+                section: "VARC",
+                chapters: [
+                    { name: "Vocabulary Based Questions", questionsDone: 0, totalQuestions: 35, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Fill in the Blanks", questionsDone: 0, totalQuestions: 47, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Sentence Correction & Grammar", questionsDone: 0, totalQuestions: 14, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Para Jumbles", questionsDone: 0, totalQuestions: 87, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Irrelevant Statement (Odd One Out)", questionsDone: 0, totalQuestions: 36, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Summary of the Paragraph", questionsDone: 0, totalQuestions: 60, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Critical Reasoning & Completion", questionsDone: 0, totalQuestions: 26, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Missing Sentence of Paragraph", questionsDone: 0, totalQuestions: 12, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Reading Comprehension", questionsDone: 0, totalQuestions: 502, lastRevised: null, expanded: false, doubts: 0 }
+                ]
+            },
+            {
+                section: "Data Interpretation",
+                chapters: [
+                    { name: "DI based on Averages & Alligations", questionsDone: 0, totalQuestions: 34, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "DI based on Percentages", questionsDone: 0, totalQuestions: 54, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "DI Mixed Concepts", questionsDone: 0, totalQuestions: 67, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Logical DI", questionsDone: 0, totalQuestions: 193, lastRevised: null, expanded: false, doubts: 0 }
+                ]
+            },
+            {
+                section: "Logical Reasoning",
+                chapters: [
+                    { name: "Set Theory", questionsDone: 0, totalQuestions: 38, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Quantitative Reasoning", questionsDone: 0, totalQuestions: 134, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Puzzles", questionsDone: 0, totalQuestions: 124, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Analytical Reasoning", questionsDone: 0, totalQuestions: 37, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Network Diagrams", questionsDone: 0, totalQuestions: 42, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Games and Tournaments", questionsDone: 0, totalQuestions: 32, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Data Sufficiency", questionsDone: 0, totalQuestions: 19, lastRevised: null, expanded: false, doubts: 0 }
+                ]
+            },
+            {
+                section: "Quant",
+                chapters: [
+                    { name: "Number System", questionsDone: 0, totalQuestions: 114, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Progression and Series", questionsDone: 0, totalQuestions: 41, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Averages and Alligations", questionsDone: 0, totalQuestions: 45, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Percentage, Profit Loss & Interest", questionsDone: 0, totalQuestions: 70, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Ratio Proportion and Variation", questionsDone: 0, totalQuestions: 36, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Time and Work", questionsDone: 0, totalQuestions: 33, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Time Speed and Distance", questionsDone: 0, totalQuestions: 67, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Geometry & Coordinate Geometry", questionsDone: 0, totalQuestions: 85, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Mensuration", questionsDone: 0, totalQuestions: 44, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Functions and Equations", questionsDone: 0, totalQuestions: 99, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Inequalities and Logs", questionsDone: 0, totalQuestions: 47, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Permutations, Combinations & Probability", questionsDone: 0, totalQuestions: 34, lastRevised: null, expanded: false, doubts: 0 },
+                    { name: "Set Theory", questionsDone: 0, totalQuestions: 11, lastRevised: null, expanded: false, doubts: 0 }
+                ]
+            }
+        ];
+        
+        let dailyTasks = {
+            date: new Date().toLocaleDateString(),
+            tasks: [
+                { name: 'Lectures', completed: false, url: 'https://docs.google.com/spreadsheets/u/0/d/121TJowkkWLeaPSAYp5Cokg0If9iwBtFDF6CZ5JWIYO0/htmlview#' },
+                { name: 'Aeon Essay Reading', completed: false, url: 'https://aeon.co/essays' },
+                { name: '1 DILR Set', completed: false, url: '#' },
+                { name: 'PYQ (8,8,8)', completed: false, url: '#' }
+            ]
+        };
+
+        const CHAPTER_STORAGE_KEY = 'catDashboardProgress_full_with_doubts';
+        const DAILY_STORAGE_KEY = 'catDailyTasks_full_with_doubts';
+
+        function saveProgress() {
+            localStorage.setItem(CHAPTER_STORAGE_KEY, JSON.stringify(studyData));
+        }
+        
+        function saveDailyTasks() {
+            localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(dailyTasks));
+        }
+
+        function loadProgress() {
+            const savedData = localStorage.getItem(CHAPTER_STORAGE_KEY);
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                parsedData.forEach((savedSection, secIdx) => {
+                    if (studyData[secIdx]) {
+                        savedSection.chapters.forEach((savedChapter, chapIdx) => {
+                            if (studyData[secIdx].chapters[chapIdx]) {
+                                const currentExpandedState = studyData[secIdx].chapters[chapIdx].expanded;
+                                Object.assign(studyData[secIdx].chapters[chapIdx], savedChapter);
+                                studyData[secIdx].chapters[chapIdx].expanded = currentExpandedState;
+                            }
+                        });
+                    }
+                });
+            }
+            
+            const savedDaily = localStorage.getItem(DAILY_STORAGE_KEY);
+            const today = new Date().toLocaleDateString();
+            if (savedDaily) {
+                const parsedDaily = JSON.parse(savedDaily);
+                if (parsedDaily.date === today) {
+                    dailyTasks = parsedDaily;
+                } else {
+                    dailyTasks.date = today;
+                    saveDailyTasks();
+                }
+            } else {
+                dailyTasks.date = today;
+                saveDailyTasks();
+            }
+        }
+
+        function renderReminders() {
+            const container = document.getElementById('reminders-container');
+            container.innerHTML = `
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Daily Goals</h2>
+                    <ul class="space-y-3">
+                        ${dailyTasks.tasks.map((task, index) => `
+                            <li class="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                                <a href="${task.url}" target="_blank" class="font-semibold text-gray-700 hover:text-indigo-600">${task.name}</a>
+                                <button class="tick-button ${task.completed ? 'completed' : ''}" data-action="tick-daily" data-index="${index}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                </button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        function renderDashboard() {
+            // --- RENDER OVERALL PROGRESS ---
+            const progressContainer = document.getElementById('overall-progress-container');
+            let progressData = [];
+            studyData.forEach(section => {
+                const sectionTotal = section.chapters.reduce((acc, chap) => acc + chap.totalQuestions, 0);
+                const sectionDone = section.chapters.reduce((acc, chap) => acc + chap.questionsDone, 0);
+                progressData.push({ name: section.section, done: sectionDone, total: sectionTotal });
+            });
+            const grandTotal = progressData.reduce((acc, sec) => acc + sec.total, 0);
+            const grandDone = progressData.reduce((acc, sec) => acc + sec.done, 0);
+            progressData.push({ name: 'Grand Total', done: grandDone, total: grandTotal, isTotal: true });
+
+            progressContainer.innerHTML = `
+                 <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-5">Overall Progress</h2>
+                    <div class="space-y-4">
+                        ${progressData.map(item => {
+                            const progress = item.total > 0 ? (item.done / item.total) * 100 : 0;
+                            return `
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold ${item.isTotal ? 'text-indigo-600' : 'text-gray-700'}">${item.name}</span>
+                                        <span class="text-sm font-semibold text-gray-600">${item.done} / ${item.total}</span>
+                                    </div>
+                                    <div class="w-full progress-bar-bg rounded-full h-3">
+                                        <div class="${item.isTotal ? 'total-progress-bar-fg' : 'summary-progress-bar-fg'} h-3 rounded-full" style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            
+            // --- RENDER DAILY & CHAPTER DETAILS ---
+            renderReminders();
+            const container = document.getElementById('dashboard-container');
+            container.innerHTML = '';
+            studyData.forEach((section, sectionIndex) => {
+                const sectionEl = document.createElement('div');
+                sectionEl.innerHTML = `<h2 class="text-3xl font-bold text-indigo-600 mb-6">${section.section}</h2>`;
+                
+                const chapterGrid = document.createElement('div');
+                chapterGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+
+                section.chapters.forEach((chapter, chapterIndex) => {
+                    const questionProgress = chapter.totalQuestions > 0 ? (chapter.questionsDone / chapter.totalQuestions) * 100 : 0;
+                    
+                    let revisionStatusHTML = '<span class="text-sm text-gray-500">Not revised yet.</span>';
+                    let needsRevision = false;
+                    if (chapter.lastRevised) {
+                        const lastRevisedDate = new Date(chapter.lastRevised);
+                        const diffTime = new Date() - lastRevisedDate;
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        
+                        if (diffDays > 7) { 
+                            needsRevision = true;
+                            revisionStatusHTML = `<span class="font-semibold text-red-500">Revision Due!</span> (Last: ${lastRevisedDate.toLocaleDateString()})`;
+                        } else {
+                            revisionStatusHTML = `<span class="font-semibold text-green-600">Revised recently.</span> (On: ${lastRevisedDate.toLocaleDateString()})`;
+                        }
+                    }
+
+                    const chapterCard = document.createElement('div');
+                    chapterCard.className = `chapter-card bg-white rounded-xl shadow-lg overflow-hidden ${needsRevision ? 'border-2 border-red-400' : ''}`;
+                    chapterCard.innerHTML = `
+                        <div class="p-6 cursor-pointer" data-action="toggle" data-section="${sectionIndex}" data-chapter="${chapterIndex}">
+                            <div class="flex justify-between items-start">
+                                <h3 class="text-xl font-bold text-gray-800 pr-4">${chapter.name}</h3>
+                                <div class="flex items-center space-x-3 flex-shrink-0">
+                                     ${chapter.doubts > 0 ? `<span class="text-xs font-semibold text-red-600 bg-red-100 px-2 py-1 rounded-full">${chapter.doubts} Doubts</span>` : ''}
+                                    <svg class="w-6 h-6 transform transition-transform text-gray-400 ${chapter.expanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
+                            </div>
+                            <div class="mt-4 space-y-3">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-xs font-semibold text-gray-600 flex items-center uppercase">
+                                            Practiced
+                                        </span>
+                                        <span class="text-xs font-bold text-gray-600">${Math.round(questionProgress)}%</span>
+                                    </div>
+                                    <div class="w-full progress-bar-bg rounded-full h-2">
+                                        <div class="summary-progress-bar-fg h-2 rounded-full" style="width: ${questionProgress}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="details-section ${chapter.expanded ? 'open' : ''}">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h4 class="font-bold mb-2">Problem Practice</h4>
+                                    <div class="flex items-center space-x-2">
+                                        <input type="number" value="${chapter.questionsDone}" min="0" max="${chapter.totalQuestions}" class="w-20 p-2 border rounded-md" data-action="input" data-type="done" data-section="${sectionIndex}" data-chapter="${chapterIndex}">
+                                        <span class="text-gray-500">/</span>
+                                        <input type="number" value="${chapter.totalQuestions}" min="1" class="w-20 p-2 border rounded-md bg-gray-100" data-action="input" data-type="total" data-section="${sectionIndex}" data-chapter="${chapterIndex}">
+                                    </div>
+                                </div>
+                                <div>
+                                     <h4 class="font-bold mb-2">Doubts</h4>
+                                     <input type="number" value="${chapter.doubts}" min="0" class="w-20 p-2 border rounded-md" data-action="input-doubt" data-section="${sectionIndex}" data-chapter="${chapterIndex}">
+                                </div>
+                            </div>
+                            
+                            <h4 class="font-bold mb-3">Revision Status</h4>
+                            <div class="flex items-center justify-between p-3 rounded-lg bg-gray-100">
+                                <p class="text-sm">${revisionStatusHTML}</p>
+                                <button class="revise-button bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg" data-action="revise" data-section="${sectionIndex}" data-chapter="${chapterIndex}">
+                                    Revised Today
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    chapterGrid.appendChild(chapterCard);
+                });
+                sectionEl.appendChild(chapterGrid);
+                container.appendChild(sectionEl);
+            });
+        }
+
+        // --- EVENT HANDLER ---
+        function handleInteraction(event) {
+            const target = event.target.closest('[data-action]');
+            if (!target) return;
+
+            const { action, section, chapter, type, index } = target.dataset;
+            
+            switch (action) {
+                case 'toggle':
+                    studyData[section].chapters[chapter].expanded = !studyData[section].chapters[chapter].expanded;
+                    break;
+                case 'tick-daily':
+                    dailyTasks.tasks[index].completed = !dailyTasks.tasks[index].completed;
+                    saveDailyTasks();
+                    break;
+                case 'input':
+                    const value = parseInt(target.value, 10) || 0;
+                    if (type === 'done') {
+                        const total = studyData[section].chapters[chapter].totalQuestions;
+                        studyData[section].chapters[chapter].questionsDone = Math.max(0, Math.min(value, total));
+                    }
+                    if (type === 'total') {
+                         studyData[section].chapters[chapter].totalQuestions = Math.max(1, value);
+                    }
+                    break;
+                case 'input-doubt':
+                    const doubtValue = parseInt(target.value, 10) || 0;
+                    studyData[section].chapters[chapter].doubts = Math.max(0, doubtValue);
+                    break;
+                case 'revise':
+                    studyData[section].chapters[chapter].lastRevised = new Date().toISOString();
+                    break;
+            }
+            
+            if(action !== 'tick-daily') saveProgress();
+            renderDashboard();
+        }
+
+        // --- COUNTDOWN TIMER LOGIC ---
+        function startCountdown() {
+            const countdownEl = document.getElementById('countdown-container');
+            const targetDate = new Date('November 10, 2025 00:00:00').getTime();
+
+            const interval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = targetDate - now;
+
+                if (distance < 0) {
+                    clearInterval(interval);
+                    countdownEl.innerHTML = `<div class="text-3xl font-bold text-green-600">The day is here! All the best!</div>`;
+                    return;
+                }
+
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                countdownEl.innerHTML = `
+                    <div class="flex justify-center items-start space-x-4 sm:space-x-8">
+                        <div>
+                            <div class="text-4xl sm:text-5xl font-extrabold text-indigo-600">${String(days).padStart(2, '0')}</div>
+                            <div class="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Days</div>
+                        </div>
+                        <div>
+                            <div class="text-4xl sm:text-5xl font-extrabold text-indigo-600">${String(hours).padStart(2, '0')}</div>
+                            <div class="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Hours</div>
+                        </div>
+                        <div>
+                            <div class="text-4xl sm:text-5xl font-extrabold text-indigo-600">${String(minutes).padStart(2, '0')}</div>
+                            <div class="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Minutes</div>
+                        </div>
+                        <div>
+                            <div class="text-4xl sm:text-5xl font-extrabold text-indigo-600">${String(seconds).padStart(2, '0')}</div>
+                            <div class="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Seconds</div>
+                        </div>
+                    </div>
+                    <p class="mt-4 text-lg italic text-gray-700 font-medium">"वक़्त आपका है, चाहो तो सोना बना लो, और चाहो तो सोने में गुज़ार दो।"</p>
+                `;
+            }, 1000);
+        }
+
+        // --- INITIALIZATION ---
+        loadProgress();
+        renderDashboard();
+        startCountdown(); // Start the timer
+        document.querySelector('body').addEventListener('click', handleInteraction);
+        document.querySelector('body').addEventListener('input', handleInteraction);
+
+    </script>
+</body>
+</html>
