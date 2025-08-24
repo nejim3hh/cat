@@ -19,15 +19,6 @@
             transform: translateY(-5px);
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
-        .tick-button {
-            display: flex; align-items: center; justify-content: center; width: 22px; height: 22px;
-            border: 2px solid #9ca3af; border-radius: 50%; cursor: pointer; transition: all 0.2s ease;
-            flex-shrink: 0;
-        }
-        .tick-button.completed { background-color: #10b981; border-color: #10b981; }
-        .tick-button svg { display: none; width: 12px; height: 12px; color: white; }
-        .tick-button.completed svg { display: block; }
-
         .progress-bar-bg { background-color: #e5e7eb; }
         .summary-progress-bar-fg {
             background: linear-gradient(to right, #6ee7b7, #10b981);
@@ -53,6 +44,19 @@
             max-height: 1000px; /* Large enough to not clip content */
             padding: 1.5rem 1.5rem;
         }
+        .stepper-button {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: white;
+            background-color: #4f46e5;
+            transition: background-color 0.2s ease;
+        }
+        .stepper-button:hover {
+            background-color: #4338ca;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -64,19 +68,19 @@
         </header>
 
         <div id="countdown-container" class="bg-white p-6 rounded-xl shadow-lg text-center mb-8">
-            </div>
+        </div>
 
         <div id="overall-progress-container" class="mb-8"></div>
-        <div id="reminders-container" class="mb-12"></div>
+        <div id="lecture-tracker-container" class="mb-12"></div>
 
         <main id="dashboard-container" class="space-y-10">
         </main>
     </div>
 
     <script>
-        // --- DATA STRUCTURE (WITH DOUBTS FIELD) ---
+        // --- DATA STRUCTURES ---
         const studyData = [
-            {
+             {
                 section: "VARC",
                 chapters: [
                     { name: "Vocabulary Based Questions", questionsDone: 0, totalQuestions: 35, lastRevised: null, expanded: false, doubts: 0 },
@@ -131,31 +135,28 @@
             }
         ];
         
-        let dailyTasks = {
-            date: new Date().toLocaleDateString(),
-            tasks: [
-                { name: 'Lectures', completed: false, url: 'https://docs.google.com/spreadsheets/u/0/d/121TJowkkWLeaPSAYp5Cokg0If9iwBtFDF6CZ5JWIYO0/htmlview#' },
-                { name: 'Aeon Essay Reading', completed: false, url: 'https://aeon.co/essays' },
-                { name: '1 DILR Set', completed: false, url: '#' },
-                { name: 'PYQ (8,8,8)', completed: false, url: '#' }
-            ]
+        let lectureData = {
+            'Quant': { done: 0, total: 214 },
+            'DILR': { done: 0, total: 70 },
+            'VARC': { done: 0, total: 22 }
         };
 
         const CHAPTER_STORAGE_KEY = 'catDashboardProgress_full_with_doubts';
-        const DAILY_STORAGE_KEY = 'catDailyTasks_full_with_doubts';
+        const LECTURE_STORAGE_KEY = 'catLectureProgress';
 
+        // --- SAVE & LOAD FUNCTIONS ---
         function saveProgress() {
             localStorage.setItem(CHAPTER_STORAGE_KEY, JSON.stringify(studyData));
         }
-        
-        function saveDailyTasks() {
-            localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(dailyTasks));
-        }
 
+        function saveLectureProgress() {
+            localStorage.setItem(LECTURE_STORAGE_KEY, JSON.stringify(lectureData));
+        }
+        
         function loadProgress() {
-            const savedData = localStorage.getItem(CHAPTER_STORAGE_KEY);
-            if (savedData) {
-                const parsedData = JSON.parse(savedData);
+            const savedChapterData = localStorage.getItem(CHAPTER_STORAGE_KEY);
+            if (savedChapterData) {
+                const parsedData = JSON.parse(savedChapterData);
                 parsedData.forEach((savedSection, secIdx) => {
                     if (studyData[secIdx]) {
                         savedSection.chapters.forEach((savedChapter, chapIdx) => {
@@ -168,41 +169,53 @@
                     }
                 });
             }
-            
-            const savedDaily = localStorage.getItem(DAILY_STORAGE_KEY);
-            const today = new Date().toLocaleDateString();
-            if (savedDaily) {
-                const parsedDaily = JSON.parse(savedDaily);
-                if (parsedDaily.date === today) {
-                    dailyTasks = parsedDaily;
-                } else {
-                    dailyTasks.date = today;
-                    saveDailyTasks();
-                }
-            } else {
-                dailyTasks.date = today;
-                saveDailyTasks();
+
+            const savedLectureData = localStorage.getItem(LECTURE_STORAGE_KEY);
+            if (savedLectureData) {
+                const parsedData = JSON.parse(savedLectureData);
+                Object.keys(lectureData).forEach(key => {
+                    if (parsedData[key]) {
+                        lectureData[key].done = parsedData[key].done || 0;
+                    }
+                });
             }
         }
+        
+        // --- RENDER FUNCTIONS ---
+        function renderLectureTracker() {
+            const container = document.getElementById('lecture-tracker-container');
+            const progressData = Object.keys(lectureData).map(key => ({
+                name: key,
+                ...lectureData[key]
+            }));
 
-        function renderReminders() {
-            const container = document.getElementById('reminders-container');
             container.innerHTML = `
                 <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Daily Goals</h2>
-                    <ul class="space-y-3">
-                        ${dailyTasks.tasks.map((task, index) => `
-                            <li class="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                                <a href="${task.url}" target="_blank" class="font-semibold text-gray-700 hover:text-indigo-600">${task.name}</a>
-                                <button class="tick-button ${task.completed ? 'completed' : ''}" data-action="tick-daily" data-index="${index}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                                </button>
-                            </li>
-                        `).join('')}
-                    </ul>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-5">Lecture Tracker</h2>
+                    <div class="space-y-4">
+                        ${progressData.map(item => {
+                            const progress = item.total > 0 ? (item.done / item.total) * 100 : 0;
+                            return `
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold text-gray-700">${item.name}</span>
+                                        <div class="flex items-center space-x-3">
+                                            <span class="text-sm font-semibold text-gray-600">${item.done} / ${item.total}</span>
+                                            <button class="stepper-button" data-action="decrement-lecture" data-subject="${item.name}">-</button>
+                                            <button class="stepper-button" data-action="increment-lecture" data-subject="${item.name}">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="w-full progress-bar-bg rounded-full h-3">
+                                        <div class="total-progress-bar-fg h-3 rounded-full" style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
             `;
         }
+
 
         function renderDashboard() {
             // --- RENDER OVERALL PROGRESS ---
@@ -219,28 +232,28 @@
 
             progressContainer.innerHTML = `
                  <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-5">Overall Progress</h2>
-                    <div class="space-y-4">
-                        ${progressData.map(item => {
-                            const progress = item.total > 0 ? (item.done / item.total) * 100 : 0;
-                            return `
-                                <div>
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="font-bold ${item.isTotal ? 'text-indigo-600' : 'text-gray-700'}">${item.name}</span>
-                                        <span class="text-sm font-semibold text-gray-600">${item.done} / ${item.total}</span>
-                                    </div>
-                                    <div class="w-full progress-bar-bg rounded-full h-3">
-                                        <div class="${item.isTotal ? 'total-progress-bar-fg' : 'summary-progress-bar-fg'} h-3 rounded-full" style="width: ${progress}%"></div>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
+                     <h2 class="text-2xl font-bold text-gray-800 mb-5">Practice Progress</h2>
+                     <div class="space-y-4">
+                         ${progressData.map(item => {
+                             const progress = item.total > 0 ? (item.done / item.total) * 100 : 0;
+                             return `
+                                 <div>
+                                     <div class="flex justify-between items-center mb-1">
+                                         <span class="font-bold ${item.isTotal ? 'text-indigo-600' : 'text-gray-700'}">${item.name}</span>
+                                         <span class="text-sm font-semibold text-gray-600">${item.done} / ${item.total}</span>
+                                     </div>
+                                     <div class="w-full progress-bar-bg rounded-full h-3">
+                                         <div class="${item.isTotal ? 'total-progress-bar-fg' : 'summary-progress-bar-fg'} h-3 rounded-full" style="width: ${progress}%"></div>
+                                     </div>
+                                 </div>
+                             `;
+                         }).join('')}
+                     </div>
+                 </div>
             `;
             
-            // --- RENDER DAILY & CHAPTER DETAILS ---
-            renderReminders();
+            // --- RENDER LECTURE TRACKER & CHAPTER DETAILS ---
+            renderLectureTracker(); 
             const container = document.getElementById('dashboard-container');
             container.innerHTML = '';
             studyData.forEach((section, sectionIndex) => {
@@ -282,10 +295,8 @@
                             <div class="mt-4 space-y-3">
                                 <div>
                                     <div class="flex justify-between items-center mb-1">
-                                        <span class="text-xs font-semibold text-gray-600 flex items-center uppercase">
-                                            Practiced
-                                        </span>
-                                        <span class="text-xs font-bold text-gray-600">${Math.round(questionProgress)}%</span>
+                                        <span class="text-sm font-semibold text-gray-600">Practice Progress</span>
+                                        <span class="text-sm font-bold text-gray-800">${chapter.questionsDone} / ${chapter.totalQuestions}</span>
                                     </div>
                                     <div class="w-full progress-bar-bg rounded-full h-2">
                                         <div class="summary-progress-bar-fg h-2 rounded-full" style="width: ${questionProgress}%"></div>
@@ -330,15 +341,14 @@
             const target = event.target.closest('[data-action]');
             if (!target) return;
 
-            const { action, section, chapter, type, index } = target.dataset;
+            const { action, section, chapter, type, subject } = target.dataset;
             
+            let shouldSaveChapters = false;
+            let shouldSaveLectures = false;
+
             switch (action) {
                 case 'toggle':
                     studyData[section].chapters[chapter].expanded = !studyData[section].chapters[chapter].expanded;
-                    break;
-                case 'tick-daily':
-                    dailyTasks.tasks[index].completed = !dailyTasks.tasks[index].completed;
-                    saveDailyTasks();
                     break;
                 case 'input':
                     const value = parseInt(target.value, 10) || 0;
@@ -349,24 +359,40 @@
                     if (type === 'total') {
                          studyData[section].chapters[chapter].totalQuestions = Math.max(1, value);
                     }
+                    shouldSaveChapters = true;
                     break;
                 case 'input-doubt':
                     const doubtValue = parseInt(target.value, 10) || 0;
                     studyData[section].chapters[chapter].doubts = Math.max(0, doubtValue);
+                    shouldSaveChapters = true;
                     break;
                 case 'revise':
                     studyData[section].chapters[chapter].lastRevised = new Date().toISOString();
+                    shouldSaveChapters = true;
+                    break;
+                case 'increment-lecture':
+                    if (lectureData[subject].done < lectureData[subject].total) {
+                        lectureData[subject].done++;
+                    }
+                    shouldSaveLectures = true;
+                    break;
+                case 'decrement-lecture':
+                    if (lectureData[subject].done > 0) {
+                        lectureData[subject].done--;
+                    }
+                    shouldSaveLectures = true;
                     break;
             }
             
-            if(action !== 'tick-daily') saveProgress();
+            if(shouldSaveChapters) saveProgress();
+            if(shouldSaveLectures) saveLectureProgress();
             renderDashboard();
         }
 
         // --- COUNTDOWN TIMER LOGIC ---
         function startCountdown() {
             const countdownEl = document.getElementById('countdown-container');
-            const targetDate = new Date('November 10, 2025 00:00:00').getTime();
+            const targetDate = new Date('November 24, 2025 00:00:00').getTime(); // Adjusted date to reflect a more typical CAT date
 
             const interval = setInterval(() => {
                 const now = new Date().getTime();
@@ -410,7 +436,7 @@
         // --- INITIALIZATION ---
         loadProgress();
         renderDashboard();
-        startCountdown(); // Start the timer
+        startCountdown();
         document.querySelector('body').addEventListener('click', handleInteraction);
         document.querySelector('body').addEventListener('input', handleInteraction);
 
